@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::{HashMap, HashSet};
+use wasm_bindgen::prelude::*;
 
 #[derive(Serialize, Deserialize)]
 pub struct Document {
@@ -714,4 +715,9 @@ pub fn diff_json_strs(old_json: &str, new_json: &str) -> Result<String, Box<dyn 
     let new_dataset: Dataset = serde_json::from_str(new_json)?;
     let diff = diff_datasets(&old_dataset, &new_dataset);
     Ok(serde_json::to_string_pretty(&diff)?)
+}
+
+#[wasm_bindgen]
+pub fn diff_hazo_json_strs(old_json: &str, new_json: &str) -> Result<String, String> {
+    diff_json_strs(old_json, new_json).map_err(|e| e.to_string())
 }
