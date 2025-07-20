@@ -23,6 +23,6 @@ wasm-opt = ['-O1', '--enable-bulk-memory']
 wasm-opt = ['-Oz', '--enable-bulk-memory']
 
 [profile.release]
-opt-level = 'z'
+opt-level = 's'
 lto = true
 strip = true

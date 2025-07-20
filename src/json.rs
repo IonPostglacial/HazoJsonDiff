@@ -183,20 +183,35 @@ pub enum JsonValue<'a> {
 }
 
 #[cfg_attr(test, derive(Debug))]
-pub enum JsonParserErrorType<'a> {
-    InvalidToken(Token),
-    InvalidNumber(&'a str),
-    InvalidStructure(String),
+pub enum JsonParserErrorType {
+    InvalidStructureObjectKey,
+    InvalidStructureGeneral,
 }
 
 #[cfg_attr(test, derive(Debug))]
-pub struct JsonParserError<'a> {
-    error_type: JsonParserErrorType<'a>,
+pub struct JsonParserError {
+    #[allow(dead_code)]
+    error_type: JsonParserErrorType,
 }
 
-pub fn parse_json<'a>(input: &'a str) -> Result<JsonValue<'a>, JsonParserError<'a>> {
+impl std::fmt::Display for JsonParserErrorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JsonParserErrorType::InvalidStructureObjectKey => write!(f, "Invalid object key: expected string key in object"),
+            JsonParserErrorType::InvalidStructureGeneral => write!(f, "Invalid JSON structure"),
+        }
+    }
+}
+
+impl std::fmt::Display for JsonParserError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.error_type)
+    }
+}
+
+pub fn parse_json(input: &str) -> Result<JsonValue, JsonParserError> {
     let tokenizer = Tokenizer::new(input);
-    let mut stack: Vec<JsonValue<'a>> = Vec::new();
+    let mut stack_vec: Vec<JsonValue> = Vec::new();
 
     for token in tokenizer {
         match token.token_type {
@@ -208,42 +223,42 @@ pub fn parse_json<'a>(input: &'a str) -> Result<JsonValue<'a>, JsonParserError<'
                 if s.ends_with('"') && s.len() > 0 {
                     s = &s[..s.len()-1];
                 }
-                stack.push(JsonValue::String(s));
+                stack_vec.push(JsonValue::String(s));
             }
             TokenType::Number => {
                 let number_str = &input[token.start..token.end];
                 if let Ok(num) = number_str.parse::<f64>() {
-                    stack.push(JsonValue::Number(num));
+                    stack_vec.push(JsonValue::Number(num));
                 } else {
                     return Err(JsonParserError {
-                        error_type: JsonParserErrorType::InvalidNumber(number_str),
+                        error_type: JsonParserErrorType::InvalidStructureGeneral,
                     });
                 }
             }
-            TokenType::True => stack.push(JsonValue::Boolean(true)),
-            TokenType::False => stack.push(JsonValue::Boolean(false)),
-            TokenType::Null => stack.push(JsonValue::Null),
+            TokenType::True => stack_vec.push(JsonValue::Boolean(true)),
+            TokenType::False => stack_vec.push(JsonValue::Boolean(false)),
+            TokenType::Null => stack_vec.push(JsonValue::Null),
             TokenType::Comma | TokenType::Colon => continue,
             TokenType::ArrayStart => {
-                stack.push(JsonValue::Array(Vec::new()));
+                stack_vec.push(JsonValue::Array(Vec::new()));
             }
             TokenType::ArrayEnd => {
                 let mut array = Vec::new();
-                while let Some(val) = stack.pop() {
+                while let Some(val) = stack_vec.pop() {
                     match val {
                         JsonValue::Array(_) => break, // Marqueur d'ouverture
                         _ => array.push(val),
                     }
                 }
                 array.reverse();
-                stack.push(JsonValue::Array(array));
+                stack_vec.push(JsonValue::Array(array));
             }
             TokenType::ObjectStart => {
-                stack.push(JsonValue::Object(Vec::new()));
+                stack_vec.push(JsonValue::Object(Vec::new()));
             }
             TokenType::ObjectEnd => {
                 let mut temp_vals = Vec::new();
-                while let Some(val) = stack.pop() {
+                while let Some(val) = stack_vec.pop() {
                     match val {
                         JsonValue::Object(_) => break, // Marqueur d'ouverture
                         _ => temp_vals.push(val),
@@ -257,22 +272,22 @@ pub fn parse_json<'a>(input: &'a str) -> Result<JsonValue<'a>, JsonParserError<'
                         JsonValue::String(key) => pairs.push((key, value)),
                         _ => {
                             return Err(JsonParserError {
-                                error_type: JsonParserErrorType::InvalidStructure("Object key is not a string".to_string()),
+                                error_type: JsonParserErrorType::InvalidStructureObjectKey,
                             });
                         }
                     }
                 }
                 pairs.reverse();
-                stack.push(JsonValue::Object(pairs));
+                stack_vec.push(JsonValue::Object(pairs));
             }
         }
     }
 
-    if stack.len() == 1 {
-        Ok(stack.pop().unwrap())
+    if stack_vec.len() == 1 {
+        Ok(stack_vec.pop().unwrap())
     } else {
         Err(JsonParserError {
-            error_type: JsonParserErrorType::InvalidStructure("Invalid JSON structure".to_string()),
+            error_type: JsonParserErrorType::InvalidStructureGeneral,
         })
     }
 }
@@ -458,8 +473,8 @@ mod tests {
         assert!(json_value.is_err());
         if let Err(JsonParserError { error_type }) = json_value {
             match error_type {
-                JsonParserErrorType::InvalidStructure(msg) => {
-                    assert_eq!(msg, "Invalid JSON structure");
+                JsonParserErrorType::InvalidStructureGeneral => {
+                    // Erreur attendue pour la structure invalide
                 }
                 _ => panic!("Expected InvalidStructure error type"),
             }

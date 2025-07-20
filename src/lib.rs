@@ -13,8 +13,8 @@ fn get_prop<'a>(obj: &'a crate::json::JsonValue<'a>, key: &str) -> Option<&'a cr
 }
 
 pub fn diff_json_strs(old_json: &str, new_json: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let old_val = parse_json(old_json).map_err(|_e| "parse old: erreur de parsing JSON".to_string())?;
-    let new_val = parse_json(new_json).map_err(|_e| "parse new: erreur de parsing JSON".to_string())?;
+    let old_val = parse_json(old_json).map_err(|e| format!("parse old: {}", e))?;
+    let new_val = parse_json(new_json).map_err(|e| format!("parse new: {}", e))?;
     let mut result_fields = Vec::new();
     for prop in ["taxons", "characters", "states", "books"] {
         let old_p = get_prop(&old_val, prop).ok_or_else(|| format!("property '{}' missing in old JSON", prop))?;
