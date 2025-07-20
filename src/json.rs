@@ -20,121 +20,155 @@ pub struct Token {
     token_type: TokenType,
 }
 
-fn tokenize(input: &str) -> Vec<Token> {
-    let mut tokens = Vec::new();
-    let mut start = 0;
-    let mut in_string = false;
-    let mut i = 0;
-    let src = input.as_bytes();
+struct Tokenizer<'a> {
+    src: &'a [u8],
+    i: usize,
+    start: usize,
+    in_string: bool,
+}
 
-    while i < src.len() {
-        let c = src[i];
-        match c {
-            b'"' if !in_string => {
-                in_string = true;
-                start = i;
-            }
-            b'"' if in_string => {
-                tokens.push(Token {
-                    start,
-                    end: i + 1,
-                    token_type: TokenType::String,
-                });
-                in_string = false;
-                start = i + 1;
-            }
-            b'{' if !in_string => {
-                tokens.push(Token {
-                    start: i,
-                    end: i + 1,
-                    token_type: TokenType::ObjectStart,
-                });
-                start = i + 1;
-            }
-            b'}' if !in_string => {
-                tokens.push(Token {
-                    start: i,
-                    end: i + 1,
-                    token_type: TokenType::ObjectEnd,
-                });
-                start = i + 1;
-            }
-            b'[' if !in_string => {
-                tokens.push(Token {
-                    start: i,
-                    end: i + 1,
-                    token_type: TokenType::ArrayStart,
-                });
-                start = i + 1;
-            }
-            b']' if !in_string => {
-                tokens.push(Token {
-                    start: i,
-                    end: i + 1,
-                    token_type: TokenType::ArrayEnd,
-                });
-                start = i + 1;
-            }
-            b',' if !in_string => {
-                tokens.push(Token {
-                    start: i,
-                    end: i + 1,
-                    token_type: TokenType::Comma,
-                });
-                start = i + 1;
-            }
-            b':' if !in_string => {
-                tokens.push(Token {
-                    start: i,
-                    end: i + 1,
-                    token_type: TokenType::Colon,
-                });
-                start = i + 1;
-            }
-            b't' if !in_string && i + 3 < src.len() && &src[i..i + 4] == b"true" => {
-                tokens.push(Token {
-                    start: i,
-                    end: i + 4,
-                    token_type: TokenType::True,
-                });
-                i += 3;
-                start = i + 1;
-            }
-            b'f' if !in_string && i + 4 < src.len() && &src[i..i + 5] == b"false" => {
-                tokens.push(Token {
-                    start: i,
-                    end: i + 5,
-                    token_type: TokenType::False,
-                });
-                i += 4;
-                start = i + 1;
-            }
-            b'n' if !in_string && i + 3 < src.len() && &src[i..i + 4] == b"null" => {
-                tokens.push(Token {
-                    start: i,
-                    end: i + 4,
-                    token_type: TokenType::Null,
-                });
-                i += 3;
-                start = i + 1;
-            }
-            _ if !in_string && (c.is_ascii_digit() || c == b'-') => {
-                let num_start = i;
-                while i + 1 < src.len() && (src[i + 1].is_ascii_digit() || src[i + 1] == b'.') {
-                    i += 1;
-                }
-                tokens.push(Token {
-                    start: num_start,
-                    end: i + 1,
-                    token_type: TokenType::Number,
-                });
-                start = i + 1;
-            }
-            _ => {}
+impl<'a> Tokenizer<'a> {
+    fn new(input: &'a str) -> Self {
+        Self {
+            src: input.as_bytes(),
+            i: 0,
+            start: 0,
+            in_string: false,
         }
-        i += 1;
     }
-    tokens
+}
+
+impl<'a> Iterator for Tokenizer<'a> {
+    type Item = Token;
+    fn next(&mut self) -> Option<Token> {
+        while self.i < self.src.len() {
+            let c = self.src[self.i];
+            match c {
+                b'"' if !self.in_string => {
+                    self.in_string = true;
+                    self.start = self.i;
+                }
+                b'"' if self.in_string => {
+                    let token = Token {
+                        start: self.start,
+                        end: self.i + 1,
+                        token_type: TokenType::String,
+                    };
+                    self.in_string = false;
+                    self.start = self.i + 1;
+                    self.i += 1;
+                    return Some(token);
+                }
+                b'{' if !self.in_string => {
+                    let token = Token {
+                        start: self.i,
+                        end: self.i + 1,
+                        token_type: TokenType::ObjectStart,
+                    };
+                    self.start = self.i + 1;
+                    self.i += 1;
+                    return Some(token);
+                }
+                b'}' if !self.in_string => {
+                    let token = Token {
+                        start: self.i,
+                        end: self.i + 1,
+                        token_type: TokenType::ObjectEnd,
+                    };
+                    self.start = self.i + 1;
+                    self.i += 1;
+                    return Some(token);
+                }
+                b'[' if !self.in_string => {
+                    let token = Token {
+                        start: self.i,
+                        end: self.i + 1,
+                        token_type: TokenType::ArrayStart,
+                    };
+                    self.start = self.i + 1;
+                    self.i += 1;
+                    return Some(token);
+                }
+                b']' if !self.in_string => {
+                    let token = Token {
+                        start: self.i,
+                        end: self.i + 1,
+                        token_type: TokenType::ArrayEnd,
+                    };
+                    self.start = self.i + 1;
+                    self.i += 1;
+                    return Some(token);
+                }
+                b',' if !self.in_string => {
+                    let token = Token {
+                        start: self.i,
+                        end: self.i + 1,
+                        token_type: TokenType::Comma,
+                    };
+                    self.start = self.i + 1;
+                    self.i += 1;
+                    return Some(token);
+                }
+                b':' if !self.in_string => {
+                    let token = Token {
+                        start: self.i,
+                        end: self.i + 1,
+                        token_type: TokenType::Colon,
+                    };
+                    self.start = self.i + 1;
+                    self.i += 1;
+                    return Some(token);
+                }
+                b't' if !self.in_string && self.i + 3 < self.src.len() && &self.src[self.i..self.i + 4] == b"true" => {
+                    let token = Token {
+                        start: self.i,
+                        end: self.i + 4,
+                        token_type: TokenType::True,
+                    };
+                    self.i += 4;
+                    self.start = self.i;
+                    return Some(token);
+                }
+                b'f' if !self.in_string && self.i + 4 < self.src.len() && &self.src[self.i..self.i + 5] == b"false" => {
+                    let token = Token {
+                        start: self.i,
+                        end: self.i + 5,
+                        token_type: TokenType::False,
+                    };
+                    self.i += 5;
+                    self.start = self.i;
+                    return Some(token);
+                }
+                b'n' if !self.in_string && self.i + 3 < self.src.len() && &self.src[self.i..self.i + 4] == b"null" => {
+                    let token = Token {
+                        start: self.i,
+                        end: self.i + 4,
+                        token_type: TokenType::Null,
+                    };
+                    self.i += 4;
+                    self.start = self.i;
+                    return Some(token);
+                }
+                _ if !self.in_string && (c.is_ascii_digit() || c == b'-') => {
+                    let num_start = self.i;
+                    while self.i + 1 < self.src.len() && (self.src[self.i + 1].is_ascii_digit() || self.src[self.i + 1] == b'.') {
+                        self.i += 1;
+                    }
+                    let token = Token {
+                        start: num_start,
+                        end: self.i + 1,
+                        token_type: TokenType::Number,
+                    };
+                    self.i += 1;
+                    self.start = self.i;
+                    return Some(token);
+                }
+                _ => {}
+            }
+            self.i += 1;
+        }
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -160,10 +194,10 @@ pub struct JsonParserError<'a> {
 }
 
 pub fn parse_json<'a>(input: &'a str) -> Result<JsonValue<'a>, JsonParserError<'a>> {
-    let tokens = tokenize(input);
+    let tokenizer = Tokenizer::new(input);
     let mut stack: Vec<JsonValue<'a>> = Vec::new();
 
-    for token in tokens {
+    for token in tokenizer {
         match token.token_type {
             TokenType::String => {
                 let mut s = &input[token.start..token.end];
@@ -249,7 +283,7 @@ mod tests {
     #[test]
     fn test_tokenize() {
         let input = r#"{"key": "value", "number": 123, "boolean": true, "null_value": null}"#;
-        let tokens = tokenize(input);
+        let tokens: Vec<_> = Tokenizer::new(input).collect();
         assert_eq!(tokens.len(), 17);
         assert_eq!(tokens[0].token_type, TokenType::ObjectStart);
         assert_eq!(tokens[1].token_type, TokenType::String);
