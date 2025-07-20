@@ -1,3 +1,5 @@
+pub use crate::errors::{JsonDiffError, JsonDiffErrorType};
+
 #[cfg_attr(test, derive(Debug))]
 #[derive(PartialEq)]
 enum TokenType {
@@ -182,34 +184,23 @@ pub enum JsonValue<'a> {
     Object(Vec<(&'a str, JsonValue<'a>)>),
 }
 
-#[cfg_attr(test, derive(Debug))]
-pub enum JsonParserErrorType {
-    InvalidStructureObjectKey,
-    InvalidStructureGeneral,
-}
-
-#[cfg_attr(test, derive(Debug))]
-pub struct JsonParserError {
-    #[allow(dead_code)]
-    error_type: JsonParserErrorType,
-}
-
-impl std::fmt::Display for JsonParserErrorType {
+impl std::fmt::Display for JsonDiffErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            JsonParserErrorType::InvalidStructureObjectKey => write!(f, "Invalid object key: expected string key in object"),
-            JsonParserErrorType::InvalidStructureGeneral => write!(f, "Invalid JSON structure"),
+            JsonDiffErrorType::InvalidStructureObjectKey => write!(f, "Invalid object key: expected string key in object"),
+            JsonDiffErrorType::InvalidStructureGeneral => write!(f, "Invalid JSON structure"),
+            JsonDiffErrorType::PropertyMissing => write!(f, "Property missing"),
         }
     }
 }
 
-impl std::fmt::Display for JsonParserError {
+impl std::fmt::Display for JsonDiffError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.error_type)
     }
 }
 
-pub fn parse_json(input: &str) -> Result<JsonValue, JsonParserError> {
+pub fn parse_json(input: &str) -> Result<JsonValue, JsonDiffError> {
     let tokenizer = Tokenizer::new(input);
     let mut stack_vec: Vec<JsonValue> = Vec::new();
 
@@ -230,8 +221,8 @@ pub fn parse_json(input: &str) -> Result<JsonValue, JsonParserError> {
                 if let Ok(num) = number_str.parse::<f64>() {
                     stack_vec.push(JsonValue::Number(num));
                 } else {
-                    return Err(JsonParserError {
-                        error_type: JsonParserErrorType::InvalidStructureGeneral,
+                    return Err(JsonDiffError {
+                        error_type: JsonDiffErrorType::InvalidStructureGeneral,
                     });
                 }
             }
@@ -271,8 +262,8 @@ pub fn parse_json(input: &str) -> Result<JsonValue, JsonParserError> {
                     match temp_vals.pop().unwrap() {
                         JsonValue::String(key) => pairs.push((key, value)),
                         _ => {
-                            return Err(JsonParserError {
-                                error_type: JsonParserErrorType::InvalidStructureObjectKey,
+                            return Err(JsonDiffError {
+                                error_type: JsonDiffErrorType::InvalidStructureObjectKey,
                             });
                         }
                     }
@@ -286,8 +277,8 @@ pub fn parse_json(input: &str) -> Result<JsonValue, JsonParserError> {
     if stack_vec.len() == 1 {
         Ok(stack_vec.pop().unwrap())
     } else {
-        Err(JsonParserError {
-            error_type: JsonParserErrorType::InvalidStructureGeneral,
+        Err(JsonDiffError {
+            error_type: JsonDiffErrorType::InvalidStructureGeneral,
         })
     }
 }
@@ -471,9 +462,9 @@ mod tests {
         let input = r#"{"key": "value", "number": 123, "boolean": true, "null_value": null"#;
         let json_value = parse_json(input);
         assert!(json_value.is_err());
-        if let Err(JsonParserError { error_type }) = json_value {
+        if let Err(JsonDiffError { error_type }) = json_value {
             match error_type {
-                JsonParserErrorType::InvalidStructureGeneral => {
+                JsonDiffErrorType::InvalidStructureGeneral => {
                     // Erreur attendue pour la structure invalide
                 }
                 _ => panic!("Expected InvalidStructure error type"),
