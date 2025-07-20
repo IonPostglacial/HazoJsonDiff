@@ -1,4 +1,5 @@
-#[derive(Debug, PartialEq)]
+#[cfg_attr(test, derive(Debug))]
+#[derive(PartialEq)]
 enum TokenType {
     String,
     Number,
@@ -13,7 +14,7 @@ enum TokenType {
     Colon,
 }
 
-#[derive(Debug)]
+#[cfg_attr(test, derive(Debug))]
 pub struct Token {
     start: usize,
     end: usize,
@@ -181,14 +182,14 @@ pub enum JsonValue<'a> {
     Object(Vec<(&'a str, JsonValue<'a>)>),
 }
 
-#[derive(Debug)]
+#[cfg_attr(test, derive(Debug))]
 pub enum JsonParserErrorType<'a> {
     InvalidToken(Token),
     InvalidNumber(&'a str),
     InvalidStructure(String),
 }
 
-#[derive(Debug)]
+#[cfg_attr(test, derive(Debug))]
 pub struct JsonParserError<'a> {
     error_type: JsonParserErrorType<'a>,
 }
@@ -282,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_tokenize() {
-        let input = r#"{"key": "value", "number": 123, "boolean": true, "null_value": null}"#;
+        let input = r#"{\"key\": \"value\", \"number\": 123, \"boolean\": true, \"null_value\": null}"#;
         let tokens: Vec<_> = Tokenizer::new(input).collect();
         assert_eq!(tokens.len(), 17);
         assert_eq!(tokens[0].token_type, TokenType::ObjectStart);
