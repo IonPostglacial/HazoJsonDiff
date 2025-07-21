@@ -128,14 +128,13 @@ fn json_escape(s: &str) -> String {
 }
 
 pub fn json_value_to_string<'a>(v: &JsonValue<'a>) -> String {
-    use JsonValue::*;
     match v {
-        String(s) => json_escape(s),
-        Number(n) => n.to_string(),
-        Boolean(b) => b.to_string(),
-        Null => "null".to_string(),
-        Array(arr) => format!("[{}]", arr.iter().map(json_value_to_string).collect::<Vec<_>>().join(",")),
-        Object(obj) => {
+        JsonValue::String(s) => json_escape(s),
+        JsonValue::Number(n) => n.to_string(),
+        JsonValue::Boolean(b) => b.to_string(),
+        JsonValue::Null => "null".to_string(),
+        JsonValue::Array(arr) => format!("[{}]", arr.iter().map(json_value_to_string).collect::<Vec<_>>().join(",")),
+        JsonValue::Object(obj) => {
             let mut map = Vec::new();
             for (k, v) in obj {
                 map.push(format!("\"{}\":{}", escape_key(k), json_value_to_string(v)));
