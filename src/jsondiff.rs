@@ -1,7 +1,7 @@
 use crate::json::JsonValue;
 use std::collections::HashSet;
 
-pub fn diff_json_value<'a>(a: &JsonValue<'a>, b: &JsonValue<'a>, force_empty_array_diff: bool) -> Option<String> {
+pub fn diff_json_value<'a>(a: &JsonValue<'a>, b: &JsonValue<'a>, force_empty_array_diff: bool, flat_object_diff: bool) -> Option<String> {
     match (a, b) {
         (JsonValue::String(sa), JsonValue::String(sb)) => {
             if sa == sb {
@@ -25,14 +25,62 @@ pub fn diff_json_value<'a>(a: &JsonValue<'a>, b: &JsonValue<'a>, force_empty_arr
             }
         }
         (JsonValue::Null, JsonValue::Null) => None,
+        (JsonValue::Object(oa), JsonValue::Object(ob)) => {
+            let keys_a: HashSet<_> = oa.iter().map(|(k, _)| *k).collect();
+            let keys_b: HashSet<_> = ob.iter().map(|(k, _)| *k).collect();
+            let mut added = Vec::new();
+            let mut removed = Vec::new();
+            let mut modified = Vec::new();
+            for k in keys_a.union(&keys_b) {
+                let va = oa.iter().find(|(key, _)| key == k).map(|(_, v)| v);
+                let vb = ob.iter().find(|(key, _)| key == k).map(|(_, v)| v);
+                match (va, vb) {
+                    (Some(_), None) => {
+                        removed.push(format!("\"{}\":{}", escape_key(k), json_value_to_string(va.unwrap())));
+                    }
+                    (None, Some(_)) => {
+                        added.push(format!("\"{}\":{}", escape_key(k), json_value_to_string(vb.unwrap())));
+                    }
+                    (Some(va), Some(vb)) => {
+                        if let Some(diff) = diff_json_value(va, vb, false, false) {
+                            modified.push(format!("\"{}\":{}", escape_key(k), diff));
+                        }
+                    }
+                    (None, None) => {}
+                }
+            }
+            let mut fields = Vec::new();
+            if !added.is_empty() {
+                fields.push(format!("\"added\":{{{}}}", added.join(",")));
+            }
+            if !removed.is_empty() {
+                fields.push(format!("\"removed\":{{{}}}", removed.join(",")));
+            }
+            if !modified.is_empty() {
+                if flat_object_diff {
+                    return Some(format!("{{{}}}", modified.join(",")));
+                } else {
+                    fields.push(format!("\"modified\":{{{}}}", modified.join(",")));
+                }
+            }
+            if fields.is_empty() {
+                None
+            } else {
+                Some(format!("{{{}}}", fields.join(",")))
+            }
+        }
         (JsonValue::Array(va), JsonValue::Array(vb)) => {
             let mut added = Vec::new();
             let mut removed = Vec::new();
             let mut modified = Vec::new();
             let min_len = va.len().min(vb.len());
             for i in 0..min_len {
-                if let Some(diff) = diff_json_value(&va[i], &vb[i], false) {
-                    modified.push(diff);
+                if let Some(diff) = diff_json_value(&va[i], &vb[i], false, true) {
+                    if diff.starts_with('{') && diff.ends_with('}') {
+                        modified.push(diff);
+                    } else {
+                        modified.push(format!("{{{}}}", diff));
+                    }
                 }
             }
             if vb.len() > va.len() {
@@ -62,46 +110,6 @@ pub fn diff_json_value<'a>(a: &JsonValue<'a>, b: &JsonValue<'a>, force_empty_arr
                 if !fields.iter().any(|f| f.starts_with("\"removed\":")) {
                     fields.insert(1, "\"removed\":[]".to_string());
                 }
-            }
-            if fields.is_empty() {
-                None
-            } else {
-                Some(format!("{{{}}}", fields.join(",")))
-            }
-        }
-        (JsonValue::Object(oa), JsonValue::Object(ob)) => {
-            let keys_a: HashSet<_> = oa.iter().map(|(k, _)| *k).collect();
-            let keys_b: HashSet<_> = ob.iter().map(|(k, _)| *k).collect();
-            let mut added = Vec::new();
-            let mut removed = Vec::new();
-            let mut modified = Vec::new();
-            for k in keys_a.union(&keys_b) {
-                let va = oa.iter().find(|(key, _)| key == k).map(|(_, v)| v);
-                let vb = ob.iter().find(|(key, _)| key == k).map(|(_, v)| v);
-                match (va, vb) {
-                    (Some(_), None) => {
-                        removed.push(format!("\"{}\":{}", escape_key(k), json_value_to_string(va.unwrap())));
-                    }
-                    (None, Some(_)) => {
-                        added.push(format!("\"{}\":{}", escape_key(k), json_value_to_string(vb.unwrap())));
-                    }
-                    (Some(va), Some(vb)) => {
-                        if let Some(diff) = diff_json_value(va, vb, false) {
-                            modified.push(format!("\"{}\":{}", escape_key(k), diff));
-                        }
-                    }
-                    (None, None) => {}
-                }
-            }
-            let mut fields = Vec::new();
-            if !added.is_empty() {
-                fields.push(format!("\"added\":{{{}}}", added.join(",")));
-            }
-            if !removed.is_empty() {
-                fields.push(format!("\"removed\":{{{}}}", removed.join(",")));
-            }
-            if !modified.is_empty() {
-                fields.push(format!("\"modified\":{{{}}}", modified.join(",")));
             }
             if fields.is_empty() {
                 None
@@ -152,7 +160,7 @@ mod tests {
     fn diff_str(a: &str, b: &str, force: bool) -> Option<String> {
         let va = parse_json(a).unwrap();
         let vb = parse_json(b).unwrap();
-        diff_json_value(&va, &vb, force)
+        diff_json_value(&va, &vb, force, false)
     }
 
     #[test]
