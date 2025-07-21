@@ -2,31 +2,30 @@ use crate::json::JsonValue;
 use std::collections::HashSet;
 
 pub fn diff_json_value<'a>(a: &JsonValue<'a>, b: &JsonValue<'a>, force_empty_array_diff: bool) -> Option<String> {
-    use JsonValue::*;
     match (a, b) {
-        (String(sa), String(sb)) => {
+        (JsonValue::String(sa), JsonValue::String(sb)) => {
             if sa == sb {
                 None
             } else {
                 Some(format!("{{\"old\":{old},\"new\":{new}}}", old=json_escape(sa), new=json_escape(sb)))
             }
         }
-        (Number(na), Number(nb)) => {
+        (JsonValue::Number(na), JsonValue::Number(nb)) => {
             if na == nb {
                 None
             } else {
                 Some(format!("{{\"old\":{},\"new\":{}}}", na, nb))
             }
         }
-        (Boolean(ba), Boolean(bb)) => {
+        (JsonValue::Boolean(ba), JsonValue::Boolean(bb)) => {
             if ba == bb {
                 None
             } else {
                 Some(format!("{{\"old\":{},\"new\":{}}}", ba, bb))
             }
         }
-        (Null, Null) => None,
-        (Array(va), Array(vb)) => {
+        (JsonValue::Null, JsonValue::Null) => None,
+        (JsonValue::Array(va), JsonValue::Array(vb)) => {
             let mut added = Vec::new();
             let mut removed = Vec::new();
             let mut modified = Vec::new();
@@ -56,7 +55,6 @@ pub fn diff_json_value<'a>(a: &JsonValue<'a>, b: &JsonValue<'a>, force_empty_arr
             if !modified.is_empty() {
                 fields.push(format!("\"modified\":[{}]", modified.join(",")));
             }
-            // Toujours inclure added/removed même vides si force_empty_array_diff
             if force_empty_array_diff {
                 if !fields.iter().any(|f| f.starts_with("\"added\":")) {
                     fields.insert(0, "\"added\":[]".to_string());
@@ -71,7 +69,7 @@ pub fn diff_json_value<'a>(a: &JsonValue<'a>, b: &JsonValue<'a>, force_empty_arr
                 Some(format!("{{{}}}", fields.join(",")))
             }
         }
-        (Object(oa), Object(ob)) => {
+        (JsonValue::Object(oa), JsonValue::Object(ob)) => {
             let keys_a: HashSet<_> = oa.iter().map(|(k, _)| *k).collect();
             let keys_b: HashSet<_> = ob.iter().map(|(k, _)| *k).collect();
             let mut added = Vec::new();

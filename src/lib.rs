@@ -3,16 +3,16 @@ use wasm_bindgen::prelude::*;
 mod json;
 mod jsondiff;
 mod errors;
-use crate::json::{parse_json};
+use crate::json::{parse_json, JsonValue};
 use crate::jsondiff::diff_json_value;
 use crate::errors::JsonDiffError;
 
 fn get_prop<'a>(
-    obj: &'a crate::json::JsonValue<'a>,
+    obj: &'a JsonValue<'a>,
     key: &str,
-) -> Option<&'a crate::json::JsonValue<'a>> {
+) -> Option<&'a JsonValue<'a>> {
     match obj {
-        crate::json::JsonValue::Object(fields) => {
+        JsonValue::Object(fields) => {
             fields.iter().find(|(k, _)| *k == key).map(|(_, v)| v)
         }
         _ => None,
@@ -22,7 +22,7 @@ fn get_prop<'a>(
 pub fn diff_json_strs(
     old_json: &str,
     new_json: &str,
-) -> Result<String, crate::json::JsonDiffError> {
+) -> Result<String, JsonDiffError> {
     let old_val = parse_json(old_json)?;
     let new_val = parse_json(new_json)?;
     let mut result_fields = Vec::new();
