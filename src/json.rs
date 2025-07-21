@@ -497,32 +497,33 @@ mod tests {
         if json_value.is_err() {
             println!("Erreur de parsing: {:?}", json_value);
         }
-        assert!(json_value.is_ok());
-        if let JsonValue::Object(obj) = json_value.unwrap() {
-            assert_eq!(obj[0].0, "id");
-            if let JsonValue::String(val) = &obj[0].1 {
-                assert_eq!(*val, "Antremaplante61");
-            } else {
-                panic!("Expected string value for 'id'");
-            }
-            assert_eq!(obj[1].0, "taxons");
-            if let JsonValue::Array(taxons) = &obj[1].1 {
-                assert!(!taxons.is_empty());
-                if let JsonValue::Object(taxon) = &taxons[0] {
-                    assert_eq!(taxon[0].0, "id");
-                    if let JsonValue::String(val) = &taxon[0].1 {
-                        assert_eq!(*val, "t1");
-                    } else {
-                        panic!("Expected string value for 'id' in taxon");
-                    }
-                } else {
-                    panic!("Expected object in taxons array");
-                }
-            } else {
-                panic!("Expected array for 'taxons'");
-            }
-        } else {
-            panic!("Expected JSON value to be an object");
+        let json_value = match json_value {
+            Ok(v) => v,
+            Err(_) => panic!("Parsing failed"),
+        };
+        let obj = match json_value {
+            JsonValue::Object(obj) => obj,
+            _ => panic!("Expected JSON value to be an object"),
+        };
+        assert_eq!(obj[0].0, "id");
+        match &obj[0].1 {
+            JsonValue::String(val) => assert_eq!(*val, "Antremaplante61"),
+            _ => panic!("Expected string value for 'id'"),
+        }
+        assert_eq!(obj[1].0, "taxons");
+        let taxons = match &obj[1].1 {
+            JsonValue::Array(taxons) => taxons,
+            _ => panic!("Expected array for 'taxons'"),
+        };
+        assert!(!taxons.is_empty());
+        let taxon = match &taxons[0] {
+            JsonValue::Object(taxon) => taxon,
+            _ => panic!("Expected object in taxons array"),
+        };
+        assert_eq!(taxon[0].0, "id");
+        match &taxon[0].1 {
+            JsonValue::String(val) => assert_eq!(*val, "t1"),
+            _ => panic!("Expected string value for 'id' in taxon"),
         }
     }
 }

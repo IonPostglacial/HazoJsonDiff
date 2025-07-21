@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+js-sys = "0.3.77"
 lol_alloc = "0.4.1"
 wasm-bindgen = "0.2.100"
 
@@ -23,6 +24,7 @@ wasm-opt = ['-O1', '--enable-bulk-memory']
 wasm-opt = ['-Oz', '--enable-bulk-memory']
 
 [profile.release]
-opt-level = 's'
+opt-level = "z"
 lto = true
+codegen-units = 1
 strip = true

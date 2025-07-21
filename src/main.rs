@@ -16,8 +16,9 @@ fn main() {
         std::process::exit(1);
     });
 
-    match diff_json_strs(&old_json, &new_json) {
-        Ok(diff_str) => println!("{}", diff_str),
+    let mut buf = String::new();
+    match diff_json_strs(&old_json, &new_json, &mut buf) {
+        Ok(()) => println!("{}", buf),
         Err(e) => {
             eprintln!("Failed to diff datasets: {}", e);
             std::process::exit(1);
