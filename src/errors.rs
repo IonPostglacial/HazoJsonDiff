@@ -1,8 +1,10 @@
 #[cfg_attr(test, derive(Debug))]
 pub enum JsonDiffErrorType {
     InvalidStructureObjectKey,
-    InvalidStructureGeneral,
     PropertyMissing,
+    InvalidStructureUnclosed,
+    InvalidStructureUnexpectedToken,
+    InvalidStructureInvalidNumber,
 }
 
 #[cfg_attr(test, derive(Debug))]

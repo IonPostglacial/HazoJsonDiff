@@ -192,8 +192,10 @@ impl std::fmt::Display for JsonDiffErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             JsonDiffErrorType::InvalidStructureObjectKey => write!(f, "Invalid object key: expected string key in object"),
-            JsonDiffErrorType::InvalidStructureGeneral => write!(f, "Invalid JSON structure"),
             JsonDiffErrorType::PropertyMissing => write!(f, "Property missing"),
+            JsonDiffErrorType::InvalidStructureUnclosed => write!(f, "Invalid structure: unclosed object or array"),
+            JsonDiffErrorType::InvalidStructureUnexpectedToken => write!(f, "Invalid structure: unexpected token"),
+            JsonDiffErrorType::InvalidStructureInvalidNumber => write!(f, "Invalid structure: invalid number"),
         }
     }
 }
@@ -226,7 +228,7 @@ pub fn parse_json(input: &str) -> Result<JsonValue, JsonDiffError> {
                     stack_vec.push(JsonValue::Number(num));
                 } else {
                     return Err(JsonDiffError {
-                        error_type: JsonDiffErrorType::InvalidStructureGeneral,
+                        error_type: JsonDiffErrorType::InvalidStructureInvalidNumber,
                     });
                 }
             }
@@ -282,7 +284,7 @@ pub fn parse_json(input: &str) -> Result<JsonValue, JsonDiffError> {
         Ok(stack_vec.pop().unwrap())
     } else {
         Err(JsonDiffError {
-            error_type: JsonDiffErrorType::InvalidStructureGeneral,
+            error_type: JsonDiffErrorType::InvalidStructureUnclosed,
         })
     }
 }
@@ -313,6 +315,22 @@ mod tests {
         assert_eq!(tokens[14].token_type, TokenType::Colon);
         assert_eq!(tokens[15].token_type, TokenType::Null);
         assert_eq!(tokens[16].token_type, TokenType::ObjectEnd);
+    }
+
+    #[test]
+    fn test_tokenize_nested() {
+        let input = r#"{"outer": {"inner": "value"}}"#;
+        let tokens: Vec<_> = Tokenizer::new(input).collect();
+        assert_eq!(tokens.len(), 9);
+        assert_eq!(tokens[0].token_type, TokenType::ObjectStart);
+        assert_eq!(tokens[1].token_type, TokenType::String);
+        assert_eq!(tokens[2].token_type, TokenType::Colon);
+        assert_eq!(tokens[3].token_type, TokenType::ObjectStart);
+        assert_eq!(tokens[4].token_type, TokenType::String);
+        assert_eq!(tokens[5].token_type, TokenType::Colon);
+        assert_eq!(tokens[6].token_type, TokenType::String);
+        assert_eq!(tokens[7].token_type, TokenType::ObjectEnd);
+        assert_eq!(tokens[8].token_type, TokenType::ObjectEnd);
     }
 
     #[test]
@@ -467,7 +485,7 @@ mod tests {
         assert!(json_value.is_err());
         if let Err(JsonDiffError { error_type }) = json_value {
             match error_type {
-                JsonDiffErrorType::InvalidStructureGeneral => {
+                JsonDiffErrorType::InvalidStructureUnclosed => {
                     // Erreur attendue pour la structure invalide
                 }
                 _ => panic!("Expected InvalidStructure error type"),
