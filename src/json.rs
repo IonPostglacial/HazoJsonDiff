@@ -47,6 +47,10 @@ impl<'a> Iterator for Tokenizer<'a> {
         while self.i < self.src.len() {
             let c = self.src[self.i];
             match c {
+                b'\\' if self.in_string => {
+                    self.i += 2;
+                    continue;
+                }
                 b'"' if !self.in_string => {
                     self.in_string = true;
                     self.start = self.i;
@@ -174,7 +178,7 @@ impl<'a> Iterator for Tokenizer<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum JsonValue<'a> {
     String(&'a str),
     Number(f64),
@@ -289,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_tokenize() {
-        let input = r#"{\"key\": \"value\", \"number\": 123, \"boolean\": true, \"null_value\": null}"#;
+        let input = r#"{"key": "value", "number": 123, "boolean": true, "null_value": null}"#;
         let tokens: Vec<_> = Tokenizer::new(input).collect();
         assert_eq!(tokens.len(), 17);
         assert_eq!(tokens[0].token_type, TokenType::ObjectStart);
@@ -410,10 +414,9 @@ mod tests {
             } else {
                 panic!("Expected third element to be a boolean");
             }
-            if let JsonValue::Null = &array[3] {
-                // Expected fourth element to be null
-            } else {
+            if JsonValue::Null != array[3] {
                 panic!("Expected fourth element to be null");
+            } else {
             }
         } else {
             panic!("Expected JSON value to be an array");
@@ -524,6 +527,80 @@ mod tests {
         match &taxon[0].1 {
             JsonValue::String(val) => assert_eq!(*val, "t1"),
             _ => panic!("Expected string value for 'id' in taxon"),
+        }
+    }
+
+    #[test]
+    fn test_parse_quoted_string() {
+        let input = r#""\"hello\"""#;
+
+        let result = parse_json(input);
+        assert!(result.is_ok(), "Expected JSON to parse successfully, but got error: {:?}", result);
+
+        if let Ok(JsonValue::String(value)) = result {
+            assert_eq!(value, "\\\"hello\\\"");
+        } else {
+            panic!("Expected JSON value to be a string");
+        }
+    }
+
+    #[test]
+    fn test_parse_nested_object() {
+        let input = r#"{"outer": {"inner": "value"}}"#;
+        let result = parse_json(input);
+        assert!(result.is_ok(), "Expected JSON to parse successfully, but got error: {:?}", result);
+
+        if let Ok(JsonValue::Object(obj)) = result {
+            assert_eq!(obj.len(), 1);
+            assert_eq!(obj[0].0, "outer");
+            if let JsonValue::Object(inner_obj) = &obj[0].1 {
+                assert_eq!(inner_obj.len(), 1);
+                if let JsonValue::String(value) = &inner_obj[0].1 {
+                    assert_eq!(*value, "value");
+                } else {
+                    panic!("Expected string value for 'inner'");
+                }
+            } else {
+                panic!("Expected object value for 'outer'");
+            }
+        } else {
+            panic!("Expected JSON value to be an object");
+        }
+    }
+
+    #[test]
+    fn test_parse_array_with_objects() {
+        let input = r#"[{"key": "value"}, {"key2": "value2"}]"#;
+        let result = parse_json(input);
+        assert!(result.is_ok(), "Expected JSON to parse successfully, but got error: {:?}", result);
+
+        if let Ok(JsonValue::Array(array)) = result {
+            assert_eq!(array.len(), 2);
+            if let JsonValue::Object(obj1) = &array[0] {
+                assert_eq!(obj1.len(), 1);
+                assert_eq!(obj1[0].0, "key");
+                if let JsonValue::String(value) = &obj1[0].1 {
+                    assert_eq!(*value, "value");
+                } else {
+                    panic!("Expected string value for 'key'");
+                }
+            } else {
+                panic!("Expected first element to be an object");
+            }
+
+            if let JsonValue::Object(obj2) = &array[1] {
+                assert_eq!(obj2.len(), 1);
+                assert_eq!(obj2[0].0, "key2");
+                if let JsonValue::String(value) = &obj2[0].1 {
+                    assert_eq!(*value, "value2");
+                } else {
+                    panic!("Expected string value for 'key2'");
+                }
+            } else {
+                panic!("Expected second element to be an object");
+            }
+        } else {
+            panic!("Expected JSON value to be an array");
         }
     }
 }
