@@ -257,24 +257,30 @@ pub fn parse_json(input: &str) -> Result<JsonValue, JsonDiffError> {
                 let mut temp_vals = Vec::new();
                 while let Some(val) = stack_vec.pop() {
                     match val {
-                        JsonValue::Object(_) => break, // Marqueur d'ouverture
-                        _ => temp_vals.push(val),
+                        JsonValue::Object(ref obj) if obj.is_empty() => {
+                            break;
+                        }
+                        _ => {
+                            temp_vals.push(val);
+                        }
                     }
                 }
                 temp_vals.reverse();
                 let mut pairs = Vec::new();
-                while temp_vals.len() >= 2 {
-                    let value = temp_vals.pop().unwrap();
-                    match temp_vals.pop().unwrap() {
-                        JsonValue::String(key) => pairs.push((key, value)),
+                let mut i = 0;
+                while i + 1 < temp_vals.len() {
+                    let key = match &temp_vals[i] {
+                        JsonValue::String(s) => *s,
                         _ => {
                             return Err(JsonDiffError {
                                 error_type: JsonDiffErrorType::InvalidStructureObjectKey,
                             });
                         }
-                    }
+                    };
+                    let value = temp_vals[i + 1].clone();
+                    pairs.push((key, value));
+                    i += 2;
                 }
-                pairs.reverse();
                 stack_vec.push(JsonValue::Object(pairs));
             }
         }
